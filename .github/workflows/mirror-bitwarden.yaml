@@ -1,0 +1,41 @@
+name: Mirror Bitwarden Canary Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Download Bitwarden artifact
+        env:
+          GH_TOKEN: ${{ secrets.GH_MIRROR_PAT }}
+        run: |
+          # Constants
+          OWNER="bitwarden"
+          REPO="clients"
+          ARTIFACT_NAME_PREFIX="Bitwarden-Portable"
+
+          # Fetch latest successful workflow run ID
+          RUN_ID=$(gh run list -R "$OWNER/$REPO" --workflow build-desktop.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          echo "Latest run ID: $RUN_ID"
+
+          # Fetch artifacts from run
+          ARTIFACT_JSON=$(gh api repos/$OWNER/$REPO/actions/runs/$RUN_ID/artifacts)
+          ARTIFACT_URL=$(echo $ARTIFACT_JSON | jq -r ".artifacts[] | select(.name | startswith(\"$ARTIFACT_NAME_PREFIX\")) | .archive_download_url")
+          FILE_NAME=$(echo $ARTIFACT_JSON | jq -r ".artifacts[] | select(.name | startswith(\"$ARTIFACT_NAME_PREFIX\")) | .name").zip
+
+          echo "Downloading artifact: $FILE_NAME"
+          curl -L -H "Authorization: token $GH_TOKEN" -o "$FILE_NAME" "$ARTIFACT_URL"
+
+      - name: Create Release and Upload
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Bitwarden Canary Build
+          tag_name: bitwarden-canary-latest
+          files: Bitwarden-Portable*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_MIRROR_PAT }}
