@@ -33,11 +33,16 @@ jobs:
           echo "Downloading artifact: $FILE_NAME"
           curl -L -H "Authorization: token $GH_TOKEN" -o "$FILE_NAME" "$ARTIFACT_URL"
 
+          # Get title from run (used as release notes)
+          TITLE=$(gh run view "$RUN_ID" -R "$OWNER/$REPO" --json displayTitle -q ".displayTitle")
+          echo "title=$TITLE" >> "$GITHUB_ENV"
+
       - name: Create Release and Upload
         uses: softprops/action-gh-release@v1
         with:
           name: Bitwarden Canary Build
           tag_name: bitwarden-canary-latest
           files: Bitwarden-Portable*.zip
+          body: ${{ env.title }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_MIRROR_PAT }}
